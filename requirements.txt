@@ -1,0 +1,25 @@
+# Core inference & async
+aiohttp>=3.9
+torch>=2.2
+torchvision>=0.17
+transformers>=4.51
+accelerate>=0.26
+bitsandbytes>=0.43       # 4-bit quantisation for local model
+
+# Multi-agent memory
+redis>=5.0
+faiss-cpu>=1.7           # swap for faiss-gpu if on a CUDA machine
+
+# Data / numerics
+numpy>=1.26
+pandas>=2.1
+pydantic>=2.5
+
+# Dashboard & visualisation
+dash>=2.17
+plotly>=5.19
+umap-learn>=0.5
+
+# Physics oracle (optional — oracle degrades gracefully without these)
+# sam2 — install from Meta: pip install git+https://github.com/facebookresearch/sam2.git
+# timm>=0.9                # MiDaS backbone
