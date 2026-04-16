@@ -166,3 +166,8 @@ data/*.json
 *.log
 results/
 outputs/
+
+# OmG specific
+.omg/
+.omx/
+rebuild_git.sh
