@@ -25,26 +25,47 @@ The physical state $s_t$ (grip stability, hand-gripper distance, velocity gradie
 sequenceDiagram
     participant O as Orchestrator
     participant P as Perception (NIM)
-    participant E as Agent Ensemble
-    participant S as Scorer (Life-Points)
-    participant G as Hyper-GRPO
+    
+    box rgba(40, 40, 40, 0.1) Epistemically Isolated Agents
+    participant A1 as Agent Alpha
+    participant A2 as Agent Beta
+    participant A3 as Agent Gamma
+    end
+    
+    participant S as Consensus & Scorer
     
     loop Every Frame
         O->>P: Extract Embedding & Oracle Signals
         P-->>O: 768-dim Vector + Physics Report
-        O->>E: Dispatch o_t^i (Masked Observation)
-        E-->>O: private a_t^i {ACT, THINK}
-        O->>S: Evaluate Ensemble Agreement
-        alt Consensus ACT & Oracle Clear
-            S-->>O: tau = t (RELEASE)
-            O->>O: Stop & Archive Golden Rule
+        
+        note over O, A3: Orchestrator constructs identity-specific, masked observations
+        par Parallel Dispatch
+            O->>A1: Dispatch o_t^1 (Full Modality)
+        and
+            O->>A2: Dispatch o_t^2 (Gripper Mask)
+        and
+            O->>A3: Dispatch o_t^3 (Velocity Mask)
+        end
+        
+        note over A1, A3: STRICT ISOLATION: Agents evaluate independently. No peer communication.
+        
+        par Private Proposals
+            A1-->>O: a_t^1 {ACT | THINK}
+        and
+            A2-->>O: a_t^2 {ACT | THINK}
+        and
+            A3-->>O: a_t^3 {ACT | THINK}
+        end
+        
+        O->>S: Submit independent proposals
+        S->>S: Compute dynamic threshold
+        
+        alt Consensus ACT reached & Oracle Clear
+            S-->>O: tau = t (COMMIT RELEASE)
+            note over O, S: Stop & Archive Golden Rule
         else THINK or Veto
-            S-->>O: Apply L_i Penalties
-            alt Agent Death (L_i <= 0)
-                O->>G: Trigger Update & Respawn
-                G-->>O: New Agent Identity
-            end
-            O->>O: Continue Observation
+            S-->>O: Apply asymmetric L_i Penalties
+            note over O, S: Dead agents trigger Hyper-GRPO replacement
         end
     end
 ```
@@ -87,18 +108,32 @@ graph TD
     end
 
     subgraph Ensemble_Control ["CLASP Orchestrator"]
-        LKV -- "Masked Context" --> A1[Agent Alpha]
-        AKV -- "Golden Rules" --> A2[Agent Beta]
-        Ora -- "Kinematic Veto" --> A3[Agent Gamma]
+        LKV & AKV & Ora --> Masking[Observation Masking Engine]
         
-        A1 & A2 & A3 -- "Private Proposals" --> CE[Consensus Engine]
-        CE -- "Dynamic Threshold" --> Verdict{tau achieved?}
+        subgraph Isolated_Ensemble ["Epistemic Isolation Barrier (No Cross-Communication)"]
+            direction TB
+            Masking -- "o_t^1" --> A1[Agent Alpha<br/>Bias: Conservative<br/>Mask: Full]
+            Masking -- "o_t^2" --> A2[Agent Beta<br/>Bias: Speed<br/>Mask: Gripper]
+            Masking -- "o_t^3" --> A3[Agent Gamma<br/>Bias: Skeptic<br/>Mask: Velocity]
+            
+            A1 ~~~ A2 ~~~ A3
+        end
+        
+        A1 -- "Private a_t^1" --> CE[Consensus Engine]
+        A2 -- "Private a_t^2" --> CE
+        A3 -- "Private a_t^3" --> CE
+        
+        CE --> Verdict{Consensus Threshold Met?}
     end
 
-    Verdict -- YES --> Release[Physical Release]
+    Verdict -- YES --> Release[Commit Physical Release]
     Verdict -- NO --> LP[Life-Points Update]
+    
     LP -- "Identity Death" --> HGRPO[Hyper-GRPO Sampler]
-    HGRPO --> Respawn[New Identity]
+    HGRPO -. "Respawns" .-> Isolated_Ensemble
+    
+    classDef isolated fill:#1e1e1e,stroke:#ff4757,stroke-width:2px,stroke-dasharray: 5 5;
+    class Isolated_Ensemble isolated;
 ```
 
 ---
